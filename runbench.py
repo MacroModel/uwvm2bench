@@ -35,6 +35,8 @@ class RunResult:
     runtime: str
     mode: str
     wasm: str
+    bench_kind: str
+    bench_tags: list[str]
     ok: bool
     rc: int
     wall_ms: float
@@ -127,6 +129,113 @@ def find_wasms(root: Path) -> list[Path]:
             continue
         wasms.append(p)
     return sorted(wasms)
+
+
+def classify_bench(wasm_rel: str) -> tuple[str, list[str]]:
+    """
+    Classify a benchmark into a primary "kind" plus optional tags.
+
+    Kinds are intended to match high-level performance characteristics:
+      - compute_dense
+      - memory_dense
+      - io_dense
+      - syscall_dense
+      - call_dense
+      - control_flow_dense
+      - unknown
+    """
+
+    rel = wasm_rel.replace("\\", "/").lower()
+    name = Path(rel).name
+
+    tags: set[str] = set()
+
+    def ret(primary: str) -> tuple[str, list[str]]:
+        tags.add(primary)
+        return (primary, sorted(tags))
+
+    # Generated WASI corpus under wasm/corpus/.
+    if rel.startswith("wasi/"):
+        tags.add("wasi")
+        tags.add("syscall_dense")
+        if "file_rw" in name or "small_io" in name:
+            tags.add("io_dense")
+            return ret("io_dense")
+        return ret("syscall_dense")
+
+    if rel.startswith("micro/"):
+        tags.add("micro")
+        if "mem_sum" in name:
+            return ret("memory_dense")
+        return ret("compute_dense")
+
+    if rel.startswith("crypto/"):
+        tags.add("crypto")
+        return ret("compute_dense")
+
+    if rel.startswith("science/"):
+        tags.add("science")
+        tags.add("compute_dense")
+        if "daxpy" in name:
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if any(k in name for k in ("mandelbrot", "sieve", "gcd")):
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        return ("compute_dense", sorted(tags))
+
+    if rel.startswith("db/"):
+        tags.add("db")
+        tags.add("memory_dense")
+        tags.add("control_flow_dense")
+        return ("memory_dense", sorted(tags))
+
+    if rel.startswith("vm/"):
+        tags.add("vm")
+        tags.add("control_flow_dense")
+        tags.add("call_dense")
+        return ("control_flow_dense", sorted(tags))
+
+    # uwvm2bench-style corpus (flat filenames).
+    if name.startswith(("call", "inline")) or "call_" in name or name.startswith("bench_call"):
+        return ret("call_dense")
+    if (
+        name.startswith(("branch", "br_table", "br_"))
+        or "branch" in name
+        or name.startswith("bench_branchy")
+        or "_br_" in name
+        or "br_ret" in name
+    ):
+        return ret("control_flow_dense")
+    if name.startswith("mem_") or "mem_" in name or name.startswith("stack_spill"):
+        return ret("memory_dense")
+    if name.startswith(("blake", "sha", "siphash", "chacha")) or name in {"blake2s.wasm", "chacha20.wasm", "sha512.wasm", "sha512_constant.wasm", "siphash.wasm"}:
+        tags.add("crypto")
+        return ret("compute_dense")
+    if name.startswith(
+        (
+            "arith_",
+            "bench_compute_",
+            "bitops_",
+            "divrem_",
+            "deepstack",
+            "inloop_deepstack",
+            "stack_reduce",
+            "keepstack",
+            "local_",
+            "global_",
+            "inline_step",
+            "inline_empty",
+            "aabb",
+        )
+    ):
+        return ret("compute_dense")
+    if name in {"coremark.wasm", "python.wasm"}:
+        tags.add("control_flow_dense")
+        tags.add("vm")
+        return ("control_flow_dense", sorted(tags))
+
+    return ret("unknown")
 
 
 def wasm3_cmd(bin_path: str, wasm_rel: str, mode: str) -> list[str]:
@@ -403,6 +512,19 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--root", default="uwvm2bench", help="directory to scan for wasm files (relative to CWD ok)")
     ap.add_argument("--timeout", type=float, default=25.0, help="timeout per run (seconds)")
     ap.add_argument("--max-wasm", type=int, default=0, help="limit number of wasm files (0 = all)")
+    ap.add_argument(
+        "--bench-kind",
+        action="append",
+        choices=["compute_dense", "memory_dense", "io_dense", "syscall_dense", "call_dense", "control_flow_dense", "unknown"],
+        default=[],
+        help="filter wasm corpus by primary bench kind (repeatable)",
+    )
+    ap.add_argument(
+        "--bench-tag",
+        action="append",
+        default=[],
+        help="filter wasm corpus by tag (repeatable; OR semantics, e.g. --bench-tag crypto --bench-tag syscall_dense)",
+    )
 
     # Output
     ap.add_argument("--out", default="logs/results.json")
@@ -442,8 +564,26 @@ def main(argv: list[str]) -> int:
         raise SystemExit(f"root not found: {root}")
 
     wasms = find_wasms(root)
+    # Pre-classify for filtering and reporting.
+    wasm_items: list[tuple[Path, str, str, list[str]]] = []
+    for w in wasms:
+        rel = os.path.relpath(w, root)
+        kind, tags = classify_bench(rel)
+        wasm_items.append((w, rel, kind, tags))
+
+    if args.bench_kind:
+        keep_kinds = set(args.bench_kind)
+        wasm_items = [it for it in wasm_items if it[2] in keep_kinds]
+    if args.bench_tag:
+        wanted = {t.strip().lower() for t in args.bench_tag if t.strip()}
+        if wanted:
+            wasm_items = [it for it in wasm_items if wanted & set(it[3])]
+
     if args.max_wasm and args.max_wasm > 0:
-        wasms = wasms[: args.max_wasm]
+        wasm_items = wasm_items[: args.max_wasm]
+
+    wasms = [it[0] for it in wasm_items]
+    bench_meta: dict[str, dict[str, object]] = {it[1]: {"kind": it[2], "tags": it[3]} for it in wasm_items}
     if not wasms:
         raise SystemExit(f"no wasm files found under: {root}")
     probe_rel = os.path.relpath(wasms[0], root)
@@ -550,12 +690,20 @@ def main(argv: list[str]) -> int:
 
             internal = extract_internal_ms(cp.out + "\n" + cp.err)
             metric_kind, metric_ms = metric_kind_and_value(wall_ms=cp.wall_ms, internal_ms=internal, metric=args.metric)
+            bm = bench_meta.get(rel)
+            if bm:
+                bench_kind = str(bm["kind"])
+                bench_tags = list(bm["tags"])  # type: ignore[arg-type]
+            else:
+                bench_kind, bench_tags = classify_bench(rel)
             results.append(
                 RunResult(
                     engine=v.engine,
                     runtime=v.runtime,
                     mode=v.mode,
                     wasm=rel,
+                    bench_kind=bench_kind,
+                    bench_tags=bench_tags,
                     ok=(cp.rc == 0),
                     rc=cp.rc,
                     wall_ms=cp.wall_ms,
@@ -575,6 +723,16 @@ def main(argv: list[str]) -> int:
             "root": str(root),
             "timeout_s": args.timeout,
             "count_wasm": len(wasms),
+            "bench_meta": bench_meta,
+            "bench_kind_semantics": {
+                "compute_dense": "dense arithmetic/crypto/science compute",
+                "memory_dense": "memory bandwidth / data-structure heavy",
+                "io_dense": "WASI filesystem I/O heavy",
+                "syscall_dense": "WASI syscall overhead heavy",
+                "call_dense": "function call overhead heavy",
+                "control_flow_dense": "branch/jump/switch heavy",
+                "unknown": "uncategorized",
+            },
             "variants": [asdict(v) for v in variants],
             "baseline": baseline,
             "metric": args.metric,
@@ -608,6 +766,25 @@ def main(argv: list[str]) -> int:
     for key, r in summ["ratios_vs_baseline"].items():  # type: ignore[union-attr]
         print(f"{key}: common_ok {r['common_ok']}, geomean {r['ratio_geomean']:.4f}, median {r['ratio_median']:.4f}")
     print(f"\nwrote: {out_path}")
+
+    # Additional summary split by bench kind.
+    kinds = sorted({r.bench_kind for r in results})
+    if kinds:
+        print(f"\n=== Summary by bench_kind ({metric_label}) ===")
+        print(f"baseline: {baseline}")
+        for kind in kinds:
+            sub = [r for r in results if r.bench_kind == kind]
+            wasm_count = len({r.wasm for r in sub})
+            print(f"\n[{kind}] wasm {wasm_count}")
+            ssub = summarize(sub, baseline, metric=args.metric)
+            for key, s in ssub["stats"].items():  # type: ignore[union-attr]
+                print(
+                    f"{key}: ok {s['ok_rc']}/{s['total']}, metric_ok {s['ok_metric']}/{s['total']}, "
+                    f"geomean {s['ms_geomean']:.3f} ms, median {s['ms_median']:.3f} ms"
+                )
+            print(f"ratios vs baseline ({metric_label}, variant/baseline, lower is faster):")
+            for key, r in ssub["ratios_vs_baseline"].items():  # type: ignore[union-attr]
+                print(f"  {key}: common_ok {r['common_ok']}, geomean {r['ratio_geomean']:.4f}, median {r['ratio_median']:.4f}")
 
     if args.plot:
         try:

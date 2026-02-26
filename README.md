@@ -25,6 +25,9 @@ Minimal, CLI-driven wasm benchmark harness to compare multiple engines under the
   - `internal`: use wasm-reported `Time: ... ms` / `time: ... ms` when present (more comparable across engines; excludes host-side compilation overhead)
   - `wall`: use external wall-clock time measured by the harness
   - `auto`: prefer `internal` when available, otherwise fall back to `wall`
+- `--bench-kind` / `--bench-tag`:
+  - filter the wasm corpus by benchmark kind (compute/io/syscall/call/control-flow/etc) or tags
+  - the run prints an additional per-kind summary at the end
 
 If a runtime/mode is not supported by an engine, that combination is skipped.
 At least one engine+runtime+mode combination must remain, otherwise the run aborts.
