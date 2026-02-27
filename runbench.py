@@ -169,6 +169,12 @@ def classify_bench(wasm_rel: str) -> tuple[str, list[str]]:
         if "file_rw" in name or "small_io" in name:
             tags.add("io_dense")
             return ret("io_dense")
+        if "readv" in name or "writev" in name:
+            tags.add("io_dense")
+            return ret("io_dense")
+        if "pread" in name or "pwrite" in name:
+            tags.add("io_dense")
+            return ret("io_dense")
         if "seek_read" in name:
             tags.add("io_dense")
             return ret("io_dense")
@@ -200,6 +206,9 @@ def classify_bench(wasm_rel: str) -> tuple[str, list[str]]:
             tags.add("compute_dense")
             return ret("call_dense")
         if "br_table" in name:
+            tags.add("compute_dense")
+            return ret("control_flow_dense")
+        if "br_if" in name:
             tags.add("compute_dense")
             return ret("control_flow_dense")
         if "control_flow_dense" in name:

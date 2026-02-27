@@ -20,15 +20,28 @@ so `runbench.py --metric=internal` can compare engines while minimizing host-sid
 - `wasi_file_rw.cc`: simple WASI filesystem workload (write+read 8 MiB).
 - `wasi_small_io.cc`: many small WASI reads/writes (64B * 100k).
 - `wasi_open_close_stat.cc`: repeated open+fstat+close of a small file.
+- `wasi_open_close_only.cc`: repeated open+close of a small file (syscall + path resolution).
 - `wasi_random_get.cc`: WASI `random_get` throughput/overhead (16 MiB total).
+- `wasi_random_get_32b_dense.cc`: many small WASI `random_get` calls (syscall overhead).
 - `wasi_fd_write_0len.cc`: repeated WASI `fd_write` calls with zero-length iovec (syscall overhead).
 - `wasi_fd_read_0len.cc`: repeated WASI `fd_read` calls with zero-length iovec (syscall overhead).
 - `wasi_fd_fdstat_get.cc`: repeated WASI `fd_fdstat_get` calls (syscall overhead).
 - `wasi_fd_filestat_get_dense.cc`: repeated `fstat` calls on an open fd (syscall overhead).
 - `wasi_args_get_dense.cc`: repeated WASI `args_get` calls (syscall overhead + small memory writes).
+- `wasi_args_sizes_get_dense.cc`: repeated WASI `args_sizes_get` calls (syscall overhead).
 - `wasi_environ_get_dense.cc`: repeated WASI `environ_get` calls (syscall overhead + small memory writes).
+- `wasi_environ_sizes_get_dense.cc`: repeated WASI `environ_sizes_get` calls (syscall overhead).
+- `wasi_sched_yield_dense.cc`: repeated WASI `sched_yield` calls (syscall overhead).
 - `wasi_seek_read.cc`: repeated `lseek`+small `read` on a small file (syscall + small I/O).
 - `wasi_seek_only.cc`: repeated `lseek` on an open file descriptor (syscall overhead).
+- `wasi_readv_4x16_dense.cc`: repeated `readv` with 4×16B iovecs (I/O + syscall overhead).
+- `wasi_writev_4x16_dense.cc`: repeated `writev` with 4×16B iovecs (I/O + syscall overhead).
+- `wasi_pread_64b_dense.cc`: random `pread` of 64B blocks (I/O + syscall overhead).
+- `wasi_pwrite_64b_dense.cc`: random `pwrite` of 64B blocks (I/O + syscall overhead).
+- `wasi_open_missing_dense.cc`: repeated failing `open` calls (syscall overhead, error path).
+- `wasi_path_filestat_get_dense.cc`: repeated `stat` on a path (syscall overhead, path resolution).
+- `wasi_prestat_dir_name_dense.cc`: repeated `fd_prestat_get` + `fd_prestat_dir_name` (preopen metadata).
+- `wasi_poll_oneoff_clock_dense.cc`: repeated `poll_oneoff` clock subscriptions (syscall overhead).
 - `crypto_sha256.cc`: SHA-256 compression rounds.
 - `crypto_chacha20.cc`: ChaCha20 block function.
 - `crypto_aes128.cc`: AES-128 encrypt many blocks.
@@ -59,6 +72,7 @@ so `runbench.py --metric=internal` can compare engines while minimizing host-sid
 - `science_kmeans_f32.cc`: k-means clustering (float compute + memory).
 - `micro_pointer_chase_u32.cc`: pointer-chase / dependent-load loop (memory latency-ish).
 - `micro_bitops_i32_mix.cc`: i32 bit operations (`popcount`/`clz`/`ctz`/rotates).
+- `micro_bitops_i64_mix.cc`: i64 bit operations mix (`popcount`/`clz`/`ctz`/rotates).
 - `micro_divrem_i64.cc`: i64 division+remainder heavy loop.
 - `micro_div_sqrt_f32.cc`: f32 division + sqrt heavy loop.
 - `micro_div_sqrt_f64.cc`: f64 division + sqrt heavy loop.
@@ -72,7 +86,11 @@ so `runbench.py --metric=internal` can compare engines while minimizing host-sid
 - `micro_json_tokenize.cc`: JSON tokenization-style scan (branchy control flow).
 - `micro_varint_decode_u64.cc`: varint decode scan (branchy control flow + bit ops).
 - `micro_memcmp_libc_u8.cc`: libc `memcmp` throughput (memory read/compare).
+- `micro_memset_libc_u8.cc`: libc `memset` throughput (memory write bandwidth).
+- `micro_memchr_libc_u8.cc`: libc `memchr` scan (byte search; match at end).
 - `micro_mem_hist_u8.cc`: byte histogram over a 4 MiB buffer (memory + scattered updates).
+- `micro_reg_pressure_i64.cc`: many live i64 locals updated in a tight loop (register pressure-ish).
+- `micro_reg_pressure_f64.cc`: many live f64 locals updated in a tight loop (register pressure-ish).
 - `micro_indirect_call_i32.cc`: function-pointer / indirect call overhead (call_indirect style).
 - `micro_control_flow_dense_predictable_i32.cc`: branch-heavy loop with predictable branching.
 - `micro_big_switch_i32.cc`: large dense `switch` / jump-table control flow.
@@ -80,6 +98,8 @@ so `runbench.py --metric=internal` can compare engines while minimizing host-sid
 - `micro_mul_add_i32.cc`: i32 multiply-add-heavy arithmetic loop.
 - `micro_int128_mul_u64.cc`: 128-bit multiply emulation via `__int128` (soft-integer heavy).
 - `micro_memcpy_libc_u8.cc`: libc `memcpy` throughput (memory bandwidth + stores).
+- `micro_memcpy_small_64b.cc`: many small `memcpy` calls (64B blocks) with a small working set.
+- `micro_memmove_libc_u8.cc`: libc `memmove` on overlapping regions (forward + backward copies).
 
 ### WAT (`wasm/src/wat/`)
 
@@ -87,16 +107,23 @@ so `runbench.py --metric=internal` can compare engines while minimizing host-sid
 - `loop_f32.wat`: hand-written float32 loop micro-benchmark.
 - `loop_f64.wat`: hand-written float loop micro-benchmark.
 - `loop_i64.wat`: hand-written i64 loop micro-benchmark.
+- `bitops_i32_dense.wat`: i32 bit-ops dense loop (`popcnt`/`clz`/`ctz`/rotates).
+- `bitops_i64_dense.wat`: i64 bit-ops dense loop (`popcnt`/`clz`/`ctz`/rotates).
 - `memory_grow_1p_x256.wat`: repeated `memory.grow` by 1 page (256 times), no page touching.
 - `memory_grow_touch_1p_x256.wat`: repeated `memory.grow` by 1 page (256 times) and touches the new pages.
 - `clock_time_get_dense.wat`: repeated `clock_time_get` calls (WAT, minimal overhead).
 - `fd_write_0len_dense.wat`: repeated `fd_write` calls with zero-length iovec (WAT, syscall overhead).
 - `fd_read_0len_dense.wat`: repeated `fd_read` calls with zero-length iovec (WAT, syscall overhead).
 - `mem_sum_i32.wat`: memory read bandwidth (sum 1 MiB of i32s for many reps).
+- `mem_sum_u8.wat`: memory read bandwidth (sum 1 MiB of bytes for many reps).
 - `mem_fill_i32.wat`: memory write bandwidth (store 1 MiB of i32s for many reps).
+- `mem_fill_u8.wat`: memory write bandwidth (store 1 MiB of bytes for many reps).
 - `mem_copy_i32.wat`: memory copy bandwidth (load+store 1 MiB of i32s for many reps).
 - `mem_copy_u8.wat`: memory copy bandwidth (byte load+store, 1 MiB for many reps).
 - `mem_stride_i32.wat`: strided memory read-modify-write over a 1 MiB region.
+- `mem_unaligned_i32.wat`: misaligned i32 load/store over a 1 MiB region (`align=1`).
+- `mem_load_store_i64.wat`: aligned i64 load/store over a 1 MiB region.
+- `mem_unaligned_i64.wat`: misaligned i64 load/store over a 1 MiB region (`align=1`).
 - `global_dense_i32.wat`: `global.get`/`global.set` dense loop.
 - `select_dense_i32.wat`: `select` instruction dense loop (branchless-ish).
 - `local_dense_i32.wat`: `local.get`/`local.set` heavy loop.
@@ -109,5 +136,13 @@ so `runbench.py --metric=internal` can compare engines while minimizing host-sid
 - `operand_stack_dense_f64.wat`: deep operand-stack push/reduce loop (f64).
 - `call_dense_i32.wat`: indirect call overhead micro-benchmark.
 - `call_direct_dense_i32.wat`: direct call overhead micro-benchmark.
+- `call_direct_many_args_i32.wat`: direct-call argument passing stress (many i32 params).
+- `call_indirect_many_args_i32.wat`: indirect-call argument passing stress (many i32 params).
 - `control_flow_dense_i32.wat`: branch-heavy control-flow micro-benchmark.
+- `br_if_dense_predictable_i32.wat`: predictable `br_if`-heavy control-flow micro-benchmark.
+- `br_if_dense_unpredictable_i32.wat`: unpredictable `br_if`-heavy control-flow micro-benchmark (xorshift-driven).
 - `br_table_dense_i32.wat`: `br_table` / switch dispatch heavy micro-benchmark.
+- `div_sqrt_f32_dense.wat`: f32 `div`+`sqrt` heavy loop (WAT, no libc).
+- `divrem_i32_dense.wat`: i32 `div`/`rem` heavy loop (WAT, no libc).
+- `divrem_i64_dense.wat`: i64 `div`/`rem` heavy loop (WAT, no libc).
+- `round_f64_dense.wat`: f64 rounding ops (`floor`/`ceil`/`trunc`/`nearest`) heavy loop (WAT, no libc).
