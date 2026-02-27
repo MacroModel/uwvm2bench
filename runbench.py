@@ -226,6 +226,14 @@ def classify_bench(wasm_rel: str) -> tuple[str, list[str]]:
         if "utf8" in name:
             tags.add("control_flow_dense")
             return ret("control_flow_dense")
+        if "json" in name:
+            tags.add("control_flow_dense")
+            tags.add("memory_dense")
+            return ret("control_flow_dense")
+        if "varint" in name:
+            tags.add("control_flow_dense")
+            tags.add("memory_dense")
+            return ret("control_flow_dense")
         tags.add("compute_dense")
         return ret("compute_dense")
 
@@ -372,9 +380,10 @@ def supported_variants(
         supp_r = {"int"}
         supp_m = {"full", "lazy"}
     elif engine == "uwvm2":
-        # Per policy: treat uwvm2 as not supporting jit here (even if the binary has the flag).
-        supp_r = {"int", "tiered"}
-        supp_m = {"full", "lazy"}
+        # The uwvm2 binary used in this repo only supports: -Rcc int -Rcm full.
+        # Be conservative and skip unsupported combinations.
+        supp_r = {"int"}
+        supp_m = {"full"}
     elif engine == "wamr":
         supp_r = {"int"}
         supp_m = {"full"}
