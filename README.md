@@ -147,3 +147,4 @@ You can select a baseline with `--baseline` using the same key format.
 
 Notes:
 - For WasmEdge installed via its env script, run `source ~/.wasmedge/env` in your shell before launching `runbench.py` so the dynamic libraries and `wasmedge` binary are discoverable.
+- For WAMR, prefer a **full** `iwasm` CLI (prints `Usage: iwasm [-options] wasm_file [args...]` and supports `--dir=...`). Some minimal/product-mini `iwasm` builds have limited guest `argv` handling and can make `argv`-dependent workloads misleading (e.g. programs that parse image size/samples from `argv`).

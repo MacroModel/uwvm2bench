@@ -30,6 +30,7 @@ class EngineVariant:
     mode: str
     bin: str
     label: str = ""
+    cli: str = ""
 
     @property
     def key(self) -> str:
@@ -57,6 +58,8 @@ class RunResult:
 
 
 TIME_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"^Elapsed time:\s*(?P<ms>\d+(?:\.\d+)?)\s*ms\b", re.MULTILINE | re.IGNORECASE),
+    re.compile(r"^Elapsed:\s*(?P<ms>\d+(?:\.\d+)?)\s*ms\b", re.MULTILINE | re.IGNORECASE),
     re.compile(r"^Time:\s*(?P<ms>\d+(?:\.\d+)?)\s*ms\b", re.MULTILINE),
     re.compile(r"^time:\s*(?P<ms>\d+(?:\.\d+)?)\s*ms\b", re.MULTILINE | re.IGNORECASE),
 ]
@@ -227,6 +230,27 @@ def resolve_bin_entries(
             return [("", found)]
 
     return []
+
+
+def detect_wamr_cli_kind(bin_path: str, *, cwd: Path, timeout_s: float = 2.0) -> str:
+    """
+    Detect whether an iwasm binary is the full CLI (supports --dir/args) or a minimal CLI.
+
+    Returns: "full" or "minimal"
+    """
+
+    cp = run_one([bin_path, "-h"], cwd, timeout_s)
+    text = (cp.out + "\n" + cp.err).strip()
+
+    if "Usage: iwasm" in text:
+        return "full"
+    if "Required arguments:" in text:
+        return "minimal"
+    if "--dir=<dir>" in text or "--dir=" in text or "\n  --dir" in text:
+        return "full"
+
+    # Conservative fallback: treat unknown output as minimal.
+    return "minimal"
 
 
 def find_wasms(root: Path) -> list[Path]:
@@ -456,8 +480,15 @@ def uwvm2_cmd(bin_path: str, wasm_rel: str, runtime: str, mode: str) -> list[str
 
 
 def wamr_cmd(bin_path: str, wasm_rel: str) -> list[str]:
-    # The provided WAMR iwasm build (fastinterp) uses a minimal CLI: -f <wasm> -d <dir>
-    return [bin_path, "-f", wasm_rel, "-d", "."]
+    raise AssertionError("call wamr_cmd_with_cli() instead")
+
+
+def wamr_cmd_with_cli(bin_path: str, wasm_rel: str, cli: str) -> list[str]:
+    if cli == "minimal":
+        # Minimal WAMR iwasm CLI (product-mini variants) uses: -f <wasm> -d <dir>
+        return [bin_path, "-f", wasm_rel, "-d", "."]
+    # Full WAMR iwasm CLI (recommended): runtime options are not forwarded into guest argv.
+    return [bin_path, "--dir=.", wasm_rel]
 
 
 def wasmtime_cmd(bin_path: str, wasm_rel: str) -> list[str]:
@@ -488,6 +519,7 @@ def supported_variants(
     engine: str,
     bin_path: str,
     label: str = "",
+    cli: str = "",
     runtimes: list[str],
     modes: list[str],
 ) -> list[EngineVariant]:
@@ -529,7 +561,7 @@ def supported_variants(
         for m in modes:
             if m not in supp_m:
                 continue
-            variants.append(EngineVariant(engine=engine, runtime=r, mode=m, bin=bin_path, label=label))
+            variants.append(EngineVariant(engine=engine, runtime=r, mode=m, bin=bin_path, label=label, cli=cli))
     return variants
 
 
@@ -540,7 +572,7 @@ def build_cmd(variant: EngineVariant, wasm_rel: str) -> list[str]:
     if eng == "uwvm2":
         return uwvm2_cmd(variant.bin, wasm_rel, variant.runtime, variant.mode)
     if eng == "wamr":
-        return wamr_cmd(variant.bin, wasm_rel)
+        return wamr_cmd_with_cli(variant.bin, wasm_rel, variant.cli)
     if eng == "wasmtime":
         # "full" is handled specially (precompile+run) in the main loop.
         # For "lazy", run the wasm directly.
@@ -801,6 +833,8 @@ def main(argv: list[str]) -> int:
 
     # Resolve binaries (each engine can have multiple bins, e.g. two uwvm2 builds).
     bins: dict[str, list[tuple[str, str]]] = {}
+    wamr_cli_by_bin: dict[str, str] = {}
+    warnings: list[str] = []
 
     if args.add_wasm3:
         entries = resolve_bin_entries(engine="wasm3", specs=args.wasm3_bin, default_cmd="wasm3")
@@ -813,11 +847,23 @@ def main(argv: list[str]) -> int:
             raise SystemExit("uwvm not found: pass --uwvm2-bin or install uwvm in PATH")
         bins["uwvm2"] = entries
     if args.add_wamr:
-        default_iwasm = "/Users/liyinan/Documents/MacroModel/src/wasm-micro-runtime/build/iwasm-fastinterp-clang/iwasm"
+        default_iwasm = "/Users/liyinan/Documents/MacroModel/src/wasm-micro-runtime/build/iwasm-productmini-fastinterp-clang/iwasm"
+        if not Path(default_iwasm).exists():
+            default_iwasm = "/Users/liyinan/Documents/MacroModel/src/wasm-micro-runtime/build/iwasm-fastinterp-clang/iwasm"
         entries = resolve_bin_entries(engine="wamr", specs=args.wamr_bin, default_path=default_iwasm, default_cmd="iwasm")
         if not entries:
             raise SystemExit("iwasm not found: pass --wamr-bin or install iwasm in PATH")
         bins["wamr"] = entries
+        for label, bin_path in entries:
+            kind = detect_wamr_cli_kind(bin_path, cwd=root)
+            wamr_cli_by_bin[bin_path] = kind
+            if kind == "minimal":
+                lab = f" ({label})" if label else ""
+                warnings.append(
+                    "warning: WAMR iwasm minimal CLI detected"
+                    f"{lab}: guest argv support is limited; argv-dependent workloads may become invalid. "
+                    "Prefer a full iwasm build that supports --dir (e.g. iwasm-productmini-*) via --wamr-bin."
+                )
     if args.add_wasmtime:
         entries = resolve_bin_entries(engine="wasmtime", specs=args.wasmtime_bin, default_cmd="wasmtime")
         if not entries:
@@ -845,7 +891,10 @@ def main(argv: list[str]) -> int:
     for eng in selected:
         eng_vs: list[EngineVariant] = []
         for label, bin_path in bins.get(eng, []):
-            eng_vs.extend(supported_variants(engine=eng, bin_path=bin_path, label=label, runtimes=args.runtime, modes=args.mode))
+            cli = wamr_cli_by_bin.get(bin_path, "") if eng == "wamr" else ""
+            eng_vs.extend(
+                supported_variants(engine=eng, bin_path=bin_path, label=label, cli=cli, runtimes=args.runtime, modes=args.mode)
+            )
         if not eng_vs:
             skipped.append(eng)
         variants.extend(eng_vs)
@@ -874,6 +923,8 @@ def main(argv: list[str]) -> int:
     print("variants:")
     for v in variants:
         print(f"  - {v.key}  ({v.bin})")
+    for w in warnings:
+        print(w)
     if skipped:
         print("skipped engines (no supported variants for current filters): " + ", ".join(skipped))
     if pruned:
