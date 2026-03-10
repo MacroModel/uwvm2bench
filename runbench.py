@@ -1375,42 +1375,43 @@ def main(argv: list[str]) -> int:
             import matplotlib.pyplot as plt  # type: ignore[import-not-found]
         except Exception as e:
             print(f"plot skipped: matplotlib not available: {e}")
-            return 0
+            plt = None  # type: ignore[assignment]
 
-        ratios = summ["ratios_vs_baseline"]  # type: ignore[assignment]
-        labels: list[str] = []
-        values: list[float] = []
-        for v in variants:
-            if v.key == baseline:
-                continue
-            rv = ratios.get(v.key)
-            if not rv:
-                continue
-            val = float(rv["ratio_geomean"])
-            if math.isfinite(val) and val > 0:
-                labels.append(v.key)
-                values.append(val)
+        if plt is not None:
+            ratios = summ["ratios_vs_baseline"]  # type: ignore[assignment]
+            labels: list[str] = []
+            values: list[float] = []
+            for v in variants:
+                if v.key == baseline:
+                    continue
+                rv = ratios.get(v.key)
+                if not rv:
+                    continue
+                val = float(rv["ratio_geomean"])
+                if math.isfinite(val) and val > 0:
+                    labels.append(v.key)
+                    values.append(val)
 
-        if labels:
-            order = sorted(range(len(labels)), key=lambda i: values[i])
-            labels = [labels[i] for i in order]
-            values = [values[i] for i in order]
+            if labels:
+                order = sorted(range(len(labels)), key=lambda i: values[i])
+                labels = [labels[i] for i in order]
+                values = [values[i] for i in order]
 
-            fig_h = max(4.0, 0.35 * len(labels) + 1.0)
-            fig, ax = plt.subplots(figsize=(12, fig_h))
-            ax.barh(labels, values)
-            ax.axvline(1.0, color="black", linewidth=1.0)
-            ax.set_xlabel(f"geomean {metric_label} ratio vs baseline ({baseline})")
-            ax.set_title(f"u2bench ratios ({metric_label}, lower is faster)")
-            ax.invert_yaxis()
-            fig.tight_layout()
+                fig_h = max(4.0, 0.35 * len(labels) + 1.0)
+                fig, ax = plt.subplots(figsize=(12, fig_h))
+                ax.barh(labels, values)
+                ax.axvline(1.0, color="black", linewidth=1.0)
+                ax.set_xlabel(f"geomean {metric_label} ratio vs baseline ({baseline})")
+                ax.set_title(f"u2bench ratios ({metric_label}, lower is faster)")
+                ax.invert_yaxis()
+                fig.tight_layout()
 
-            plot_out = Path(args.plot_out)
-            plot_out.parent.mkdir(parents=True, exist_ok=True)
-            fig.savefig(plot_out)
-            print(f"plot: {plot_out}")
-        else:
-            print("plot skipped: no comparable ratios")
+                plot_out = Path(args.plot_out)
+                plot_out.parent.mkdir(parents=True, exist_ok=True)
+                fig.savefig(plot_out)
+                print(f"plot: {plot_out}")
+            else:
+                print("plot skipped: no comparable ratios")
 
     if args.plot_per_wasm:
         try:
