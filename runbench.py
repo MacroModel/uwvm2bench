@@ -391,6 +391,315 @@ def classify_bench(wasm_rel: str) -> tuple[str, list[str]]:
     if rel.startswith("science/"):
         tags.add("science")
         tags.add("compute_dense")
+        if "pagerank" in name:
+            tags.add("graph")
+            tags.add("iterative_solver")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("memory_dense", sorted(tags))
+        if "graph_sssp" in name:
+            tags.add("graph")
+            tags.add("control_flow_dense")
+            tags.add("memory_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "spmv" in name:
+            tags.add("sparse_linear_algebra")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "value_iteration" in name:
+            tags.add("dynamic_programming")
+            tags.add("iterative_solver")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("memory_dense", sorted(tags))
+        if "kalman" in name:
+            tags.add("estimation")
+            tags.add("iterative_solver")
+            return ("compute_dense", sorted(tags))
+        if "ising" in name:
+            tags.add("physics")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "boids" in name:
+            tags.add("simulation")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "power_flow" in name:
+            tags.add("power_system")
+            tags.add("iterative_solver")
+            tags.add("circuit")
+            return ("compute_dense", sorted(tags))
+        if "lqr_control" in name or "control_" in name:
+            tags.add("control_system")
+            tags.add("iterative_solver")
+            return ("compute_dense", sorted(tags))
+        if "ik_jacobian" in name:
+            tags.add("robotics")
+            tags.add("control_system")
+            return ("compute_dense", sorted(tags))
+        if "pose_graph" in name:
+            tags.add("graph")
+            tags.add("optimization")
+            return ("compute_dense", sorted(tags))
+        if "multigrid" in name:
+            tags.add("iterative_solver")
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "circuit" in name:
+            tags.add("circuit")
+            tags.add("iterative_solver")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "truss" in name:
+            tags.add("physics")
+            tags.add("iterative_solver")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "poisson" in name or "jacobi" in name or "heat3d" in name:
+            tags.add("iterative_solver")
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "reaction_diffusion" in name:
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "lbm" in name:
+            tags.add("fluid")
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "fdtd" in name:
+            tags.add("electromagnetics")
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "shallow_water" in name:
+            tags.add("fluid")
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "particle_filter" in name:
+            tags.add("estimation")
+            tags.add("stochastic")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "mpc_boxqp" in name:
+            tags.add("control_system")
+            tags.add("optimization")
+            return ("compute_dense", sorted(tags))
+        if "dc_opf" in name:
+            tags.add("power_system")
+            tags.add("optimization")
+            return ("compute_dense", sorted(tags))
+        if "trajectory_sqp" in name:
+            tags.add("control_system")
+            tags.add("optimization")
+            return ("compute_dense", sorted(tags))
+        if "bundle_adjustment" in name:
+            tags.add("computer_vision")
+            tags.add("optimization")
+            return ("compute_dense", sorted(tags))
+        if "factor_graph" in name:
+            tags.add("graph")
+            tags.add("optimization")
+            return ("compute_dense", sorted(tags))
+        if "advection" in name:
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "finite_volume" in name or "burgers" in name:
+            tags.add("fluid")
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "euler1d" in name or "riemann" in name:
+            tags.add("fluid")
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "contact_dynamics" in name:
+            tags.add("physics")
+            tags.add("simulation")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "red_black_sor" in name:
+            tags.add("iterative_solver")
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "wave_" in name:
+            tags.add("pde")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "fir" in name:
+            tags.add("dsp")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "convolution" in name:
+            tags.add("dsp")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "biquad" in name or "iir" in name:
+            tags.add("dsp")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "viterbi" in name:
+            tags.add("dynamic_programming")
+            tags.add("control_flow_dense")
+            tags.add("memory_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "smith_waterman" in name:
+            tags.add("dynamic_programming")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "floyd_warshall" in name:
+            tags.add("graph")
+            tags.add("dynamic_programming")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "bitonic_sort" in name:
+            tags.add("sorting")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "hopfield" in name:
+            tags.add("simulation")
+            tags.add("control_flow_dense")
+            tags.add("memory_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "kaczmarz" in name:
+            tags.add("linear_algebra")
+            tags.add("iterative_solver")
+            return ("compute_dense", sorted(tags))
+        if "bicgstab" in name:
+            tags.add("linear_algebra")
+            tags.add("iterative_solver")
+            return ("compute_dense", sorted(tags))
+        if "gmres" in name:
+            tags.add("linear_algebra")
+            tags.add("iterative_solver")
+            return ("compute_dense", sorted(tags))
+        if "qubo_anneal" in name:
+            tags.add("combinatorial_optimization")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "maxcut_local_search" in name:
+            tags.add("graph")
+            tags.add("combinatorial_optimization")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "auction_assignment" in name:
+            tags.add("combinatorial_optimization")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "push_relabel" in name:
+            tags.add("graph")
+            tags.add("combinatorial_optimization")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "alpha_expansion" in name:
+            tags.add("graph")
+            tags.add("combinatorial_optimization")
+            tags.add("image_processing")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "bfs_frontier" in name:
+            tags.add("graph")
+            tags.add("graph_search")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "belief_propagation" in name:
+            tags.add("graph")
+            tags.add("probabilistic_inference")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "hmm_forward_backward" in name:
+            tags.add("probabilistic_inference")
+            tags.add("dynamic_programming")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "levenshtein" in name:
+            tags.add("dynamic_programming")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "knapsack" in name:
+            tags.add("dynamic_programming")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "binomial_option" in name:
+            tags.add("finance")
+            tags.add("dynamic_programming")
+            return ("compute_dense", sorted(tags))
+        if "game_of_life" in name:
+            tags.add("cellular_automata")
+            tags.add("memory_dense")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "lorenz" in name:
+            tags.add("ode")
+            return ("compute_dense", sorted(tags))
+        if "lotka_volterra" in name or "rk4_" in name:
+            tags.add("ode")
+            return ("compute_dense", sorted(tags))
+        if "newton_raphson" in name:
+            tags.add("optimization")
+            tags.add("root_finding")
+            return ("compute_dense", sorted(tags))
+        if "halley_root" in name:
+            tags.add("optimization")
+            tags.add("root_finding")
+            return ("compute_dense", sorted(tags))
+        if "monte_carlo" in name:
+            tags.add("stochastic")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
+        if "projected_gradient_qp" in name:
+            tags.add("optimization")
+            tags.add("linear_algebra")
+            return ("compute_dense", sorted(tags))
+        if "coordinate_descent_l1" in name:
+            tags.add("optimization")
+            tags.add("linear_algebra")
+            return ("compute_dense", sorted(tags))
+        if "admm_lasso" in name:
+            tags.add("optimization")
+            tags.add("linear_algebra")
+            return ("compute_dense", sorted(tags))
+        if "sinkhorn" in name:
+            tags.add("optimization")
+            tags.add("linear_algebra")
+            return ("compute_dense", sorted(tags))
+        if "primal_dual_tv" in name:
+            tags.add("optimization")
+            tags.add("image_processing")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "soft_kmeans" in name:
+            tags.add("machine_learning")
+            tags.add("optimization")
+            return ("compute_dense", sorted(tags))
+        if "mass_spring" in name:
+            tags.add("physics")
+            tags.add("simulation")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "thomas_solver" in name:
+            tags.add("linear_algebra")
+            tags.add("memory_dense")
+            return ("memory_dense", sorted(tags))
+        if "stochastic_vol" in name:
+            tags.add("finance")
+            tags.add("stochastic")
+            tags.add("control_flow_dense")
+            return ("control_flow_dense", sorted(tags))
         if "daxpy" in name:
             tags.add("memory_dense")
             return ("memory_dense", sorted(tags))

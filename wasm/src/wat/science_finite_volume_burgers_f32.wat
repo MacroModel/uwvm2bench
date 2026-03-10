@@ -1,0 +1,214 @@
+(module
+  (import "wasi_snapshot_preview1" "fd_write"
+    (func $fd_write (param i32 i32 i32 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "clock_time_get"
+    (func $clock_time_get (param i32 i64 i32) (result i32)))
+  (import "wasi_snapshot_preview1" "proc_exit"
+    (func $proc_exit (param i32)))
+
+  (memory (export "memory") 1)
+
+  (func $write (param $ptr i32) (param $len i32)
+    (i32.store (i32.const 0) (local.get $ptr))
+    (i32.store (i32.const 4) (local.get $len))
+    (call $fd_write (i32.const 1) (i32.const 0) (i32.const 1) (i32.const 8))
+    drop)
+
+  (func $write_u64_dec (param $n i64) (param $out i32) (result i32)
+    (local $scratch i32)
+    (local $p i32)
+    (local $len i32)
+    (local $i i32)
+    (if (i64.eq (local.get $n) (i64.const 0))
+      (then
+        (i32.store8 (local.get $out) (i32.const 48))
+        (return (i32.const 1))))
+    (local.set $scratch (i32.add (local.get $out) (i32.const 32)))
+    (local.set $p (local.get $scratch))
+    (block $done
+      (loop $loop
+        (br_if $done (i64.eq (local.get $n) (i64.const 0)))
+        (local.set $p (i32.sub (local.get $p) (i32.const 1)))
+        (i32.store8
+          (local.get $p)
+          (i32.add (i32.wrap_i64 (i64.rem_u (local.get $n) (i64.const 10))) (i32.const 48)))
+        (local.set $n (i64.div_u (local.get $n) (i64.const 10)))
+        (br $loop)))
+    (local.set $len (i32.sub (local.get $scratch) (local.get $p)))
+    (local.set $i (i32.const 0))
+    (block $copy_done
+      (loop $copy
+        (br_if $copy_done (i32.ge_u (local.get $i) (local.get $len)))
+        (i32.store8
+          (i32.add (local.get $out) (local.get $i))
+          (i32.load8_u (i32.add (local.get $p) (local.get $i))))
+        (local.set $i (i32.add (local.get $i) (i32.const 1)))
+        (br $copy)))
+    (local.get $len))
+
+  (func $write_u32_pad3 (param $v i32) (param $out i32)
+    (i32.store8 (local.get $out) (i32.add (i32.div_u (local.get $v) (i32.const 100)) (i32.const 48)))
+    (i32.store8
+      (i32.add (local.get $out) (i32.const 1))
+      (i32.add (i32.rem_u (i32.div_u (local.get $v) (i32.const 10)) (i32.const 10)) (i32.const 48)))
+    (i32.store8 (i32.add (local.get $out) (i32.const 2)) (i32.add (i32.rem_u (local.get $v) (i32.const 10)) (i32.const 48))))
+
+  (func $fmax_abs (param $a f32) (param $b f32) (result f32)
+    (if (result f32) (f32.gt (f32.abs (local.get $a)) (f32.abs (local.get $b)))
+      (then (f32.abs (local.get $a)))
+      (else (f32.abs (local.get $b)))))
+
+  (func (export "_start")
+    (local $ubase i32)
+    (local $nbase i32)
+    (local $step i32)
+    (local $i i32)
+    (local $im i32)
+    (local $ip i32)
+    (local $ul f32)
+    (local $uc f32)
+    (local $ur f32)
+    (local $speedl f32)
+    (local $speedr f32)
+    (local $fl f32)
+    (local $fr f32)
+    (local $un f32)
+    (local $sum f32)
+    (local $t0 i64)
+    (local $t1 i64)
+    (local $diff i64)
+    (local $ms_int i64)
+    (local $ms_frac i32)
+    (local $p i32)
+    (local $nlen i32)
+
+    (local.set $ubase (i32.const 1024))
+    (local.set $nbase (i32.const 3072))
+
+    (local.set $i (i32.const 0))
+    (block $init_done
+      (loop $init
+        (br_if $init_done (i32.ge_u (local.get $i) (i32.const 256)))
+        (f32.store
+          (i32.add (local.get $ubase) (i32.shl (local.get $i) (i32.const 2)))
+          (f32.sub
+            (f32.mul
+              (f32.convert_i32_s
+                (i32.sub
+                  (i32.and
+                    (i32.add (i32.mul (local.get $i) (i32.const 7)) (i32.const 3))
+                    (i32.const 31))
+                  (i32.const 16)))
+              (f32.const 0.06))
+            (f32.const 0.0)))
+        (local.set $i (i32.add (local.get $i) (i32.const 1)))
+        (br $init)))
+
+    (call $clock_time_get (i32.const 1) (i64.const 0) (i32.const 16))
+    drop
+    (local.set $t0 (i64.load (i32.const 16)))
+
+    (local.set $step (i32.const 0))
+    (block $step_done
+      (loop $step_loop
+        (br_if $step_done (i32.ge_u (local.get $step) (i32.const 160)))
+        (local.set $i (i32.const 0))
+        (block $cell_done
+          (loop $cell_loop
+            (br_if $cell_done (i32.ge_u (local.get $i) (i32.const 256)))
+            (local.set $im
+              (if (result i32) (i32.eqz (local.get $i))
+                (then (i32.const 255))
+                (else (i32.sub (local.get $i) (i32.const 1)))))
+            (local.set $ip
+              (if (result i32) (i32.eq (local.get $i) (i32.const 255))
+                (then (i32.const 0))
+                (else (i32.add (local.get $i) (i32.const 1)))))
+            (local.set $ul (f32.load (i32.add (local.get $ubase) (i32.shl (local.get $im) (i32.const 2)))))
+            (local.set $uc (f32.load (i32.add (local.get $ubase) (i32.shl (local.get $i) (i32.const 2)))))
+            (local.set $ur (f32.load (i32.add (local.get $ubase) (i32.shl (local.get $ip) (i32.const 2)))))
+            (local.set $speedl (call $fmax_abs (local.get $ul) (local.get $uc)))
+            (local.set $speedr (call $fmax_abs (local.get $uc) (local.get $ur)))
+            (local.set $fl
+              (f32.sub
+                (f32.mul
+                  (f32.const 0.25)
+                  (f32.add
+                    (f32.mul (local.get $ul) (local.get $ul))
+                    (f32.mul (local.get $uc) (local.get $uc))))
+                (f32.mul
+                  (f32.const 0.5)
+                  (f32.mul (local.get $speedl) (f32.sub (local.get $uc) (local.get $ul))))))
+            (local.set $fr
+              (f32.sub
+                (f32.mul
+                  (f32.const 0.25)
+                  (f32.add
+                    (f32.mul (local.get $uc) (local.get $uc))
+                    (f32.mul (local.get $ur) (local.get $ur))))
+                (f32.mul
+                  (f32.const 0.5)
+                  (f32.mul (local.get $speedr) (f32.sub (local.get $ur) (local.get $uc))))))
+            (local.set $un
+              (f32.sub
+                (local.get $uc)
+                (f32.mul (f32.const 0.18) (f32.sub (local.get $fr) (local.get $fl)))))
+            (local.set $un
+              (if (result f32) (f32.lt (local.get $un) (f32.const -1.4))
+                (then (f32.const -1.4))
+                (else
+                  (if (result f32) (f32.gt (local.get $un) (f32.const 1.4))
+                    (then (f32.const 1.4))
+                    (else (local.get $un))))))
+            (f32.store (i32.add (local.get $nbase) (i32.shl (local.get $i) (i32.const 2))) (local.get $un))
+            (local.set $i (i32.add (local.get $i) (i32.const 1)))
+            (br $cell_loop)))
+        (local.set $i (i32.const 0))
+        (block $copy_done
+          (loop $copy
+            (br_if $copy_done (i32.ge_u (local.get $i) (i32.const 256)))
+            (f32.store
+              (i32.add (local.get $ubase) (i32.shl (local.get $i) (i32.const 2)))
+              (f32.load (i32.add (local.get $nbase) (i32.shl (local.get $i) (i32.const 2)))))
+            (local.set $i (i32.add (local.get $i) (i32.const 1)))
+            (br $copy)))
+        (local.set $step (i32.add (local.get $step) (i32.const 1)))
+        (br $step_loop)))
+
+    (local.set $sum (f32.const 0.0))
+    (local.set $i (i32.const 0))
+    (block $sum_done
+      (loop $sum_loop
+        (br_if $sum_done (i32.ge_u (local.get $i) (i32.const 256)))
+        (local.set $sum
+          (f32.add
+            (local.get $sum)
+            (f32.abs (f32.load (i32.add (local.get $ubase) (i32.shl (local.get $i) (i32.const 2)))))))
+        (local.set $i (i32.add (local.get $i) (i32.const 1)))
+        (br $sum_loop)))
+    (f32.store (i32.const 64) (local.get $sum))
+
+    (call $clock_time_get (i32.const 1) (i64.const 0) (i32.const 24))
+    drop
+    (local.set $t1 (i64.load (i32.const 24)))
+    (local.set $diff (i64.sub (local.get $t1) (local.get $t0)))
+    (local.set $ms_int (i64.div_u (local.get $diff) (i64.const 1000000)))
+    (local.set $ms_frac (i32.wrap_i64 (i64.div_u (i64.rem_u (local.get $diff) (i64.const 1000000)) (i64.const 1000))))
+
+    (local.set $p (i32.const 4096))
+    (i32.store8 (i32.add (local.get $p) (i32.const 0)) (i32.const 84))
+    (i32.store8 (i32.add (local.get $p) (i32.const 1)) (i32.const 105))
+    (i32.store8 (i32.add (local.get $p) (i32.const 2)) (i32.const 109))
+    (i32.store8 (i32.add (local.get $p) (i32.const 3)) (i32.const 101))
+    (i32.store8 (i32.add (local.get $p) (i32.const 4)) (i32.const 58))
+    (i32.store8 (i32.add (local.get $p) (i32.const 5)) (i32.const 32))
+    (local.set $nlen (call $write_u64_dec (local.get $ms_int) (i32.add (local.get $p) (i32.const 6))))
+    (i32.store8 (i32.add (local.get $p) (i32.add (i32.const 6) (local.get $nlen))) (i32.const 46))
+    (call $write_u32_pad3 (local.get $ms_frac) (i32.add (local.get $p) (i32.add (i32.const 7) (local.get $nlen))))
+    (i32.store8 (i32.add (local.get $p) (i32.add (i32.const 10) (local.get $nlen))) (i32.const 32))
+    (i32.store8 (i32.add (local.get $p) (i32.add (i32.const 11) (local.get $nlen))) (i32.const 109))
+    (i32.store8 (i32.add (local.get $p) (i32.add (i32.const 12) (local.get $nlen))) (i32.const 115))
+    (i32.store8 (i32.add (local.get $p) (i32.add (i32.const 13) (local.get $nlen))) (i32.const 10))
+    (call $write (local.get $p) (i32.add (i32.const 14) (local.get $nlen)))
+    (call $proc_exit (i32.const 0)))
+)

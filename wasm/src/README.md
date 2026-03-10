@@ -71,6 +71,36 @@ so `runbench.py --metric=internal` can compare engines while minimizing host-sid
 - `science_fft_f64.cc`: FFT forward+inverse (transcendentals + complex math).
 - `science_black_scholes_f64.cc`: Black-Scholes (exp/log/sqrt + normal CDF approx).
 - `science_kmeans_f32.cc`: k-means clustering (float compute + memory).
+- `science_extra_suite.cc`: one source file compiled into multiple heavier science workloads:
+  - `circuit_rc_mesh_f64_40x40_x36.wasm`: nonlinear RC mesh relaxation / circuit solve.
+  - `poisson_cg_f64_64x64_x28.wasm`: conjugate-gradient Poisson solve on a 2D grid.
+  - `reaction_diffusion_f32_96x96_x60.wasm`: Gray-Scott style reaction-diffusion stencil.
+  - `pagerank_sparse_f64_4096n_x36.wasm`: sparse PageRank-style power iteration on a graph.
+  - `kalman_track_f64_6d_x40k.wasm`: repeated Kalman predict/update tracking loop.
+  - `spmv_csr_f64_4096n_x72.wasm`: repeated sparse CSR matrix-vector multiplies + normalization.
+  - `value_iteration_f64_96x96_x80.wasm`: Bellman / value-iteration solve on a 2D reward grid.
+  - `graph_sssp_relax_f64_4096n_x48.wasm`: repeated sparse shortest-path relaxation on a weighted graph.
+  - `ising_metropolis_i8_128x128_x28.wasm`: Metropolis updates on a 2D Ising spin lattice.
+  - `stochastic_vol_mc_f64_4096p_x96.wasm`: stochastic-volatility Monte Carlo option-pricing style simulation.
+  - `boids_f32_320_x48.wasm`: agent-based boids / flocking simulation with neighbor interactions.
+  - `power_flow_gs_f64_144bus_x48.wasm`: nonlinear power-grid / load-flow relaxation across a 144-bus network.
+  - `lbm_d2q9_f32_96x64_x36.wasm`: D2Q9 lattice-Boltzmann fluid simulation with obstacle bounce-back.
+  - `fem_truss_f64_24x24_x40.wasm`: nonlinear truss / spring-network structural relaxation.
+  - `lqr_control_f64_128sys_x96.wasm`: batched LQR-style control / Riccati update and rollout.
+  - `multigrid_vcycle_f32_128x128_x24.wasm`: multigrid-style V-cycle Poisson solver on a 2D grid.
+  - `fdtd_em_f32_160x96_x60.wasm`: 2D FDTD electromagnetic wave propagation update.
+  - `ik_jacobian_f64_192arm_x96.wasm`: batched Jacobian-transpose inverse kinematics for planar robot arms.
+  - `shallow_water_f32_128x96_x64.wasm`: shallow-water style finite-volume fluid update with reflective boundaries.
+  - `pose_graph_relax_f64_768n_x72.wasm`: pose-graph nonlinear relaxation with chain and loop-closure constraints.
+  - `particle_filter_f32_32trk_256p_x72.wasm`: batched particle-filter tracking with propagation, weighting, and resampling.
+  - `bicgstab_f64_96d_x56.wasm`: dense BiCGStab-style nonsymmetric linear solve with diagonal preconditioning.
+  - `mpc_boxqp_f64_48sys_x120.wasm`: batched MPC / box-constrained quadratic control rollout with backward adjoints.
+  - `gmres_restart_f64_88d_x44.wasm`: restarted GMRES-style dense Krylov solve for a nonsymmetric linear system.
+  - `dc_opf_proj_f64_96bus_x96.wasm`: projected-gradient DC optimal power-flow style solve with line-flow penalties.
+  - `bundle_adjustment_f64_48cam_192pt_x60.wasm`: bundle-adjustment style Gauss-Newton reprojection refinement over cameras and 3D points.
+  - `trajectory_sqp_f64_64traj_x96.wasm`: batched trajectory-SQP style constrained rollout with obstacle penalties and adjoints.
+  - `factor_graph_landmark_f64_384pose_256lm_x64.wasm`: pose-landmark factor-graph nonlinear refinement with chain, loop, and observation factors.
+  - `contact_dynamics_f64_192body_x96.wasm`: iterative rigid-body contact resolution with pairwise impulses and box constraints.
 - `micro_pointer_chase_u32.cc`: pointer-chase / dependent-load loop (memory latency-ish).
 - `micro_pointer_chase_u64.cc`: pointer-chase / dependent-load loop using 64-bit loads (memory latency-ish).
 - `micro_bitops_i32_mix.cc`: i32 bit operations (`popcount`/`clz`/`ctz`/rotates).
@@ -155,3 +185,44 @@ so `runbench.py --metric=internal` can compare engines while minimizing host-sid
 - `divrem_i32_dense.wat`: i32 `div`/`rem` heavy loop (WAT, no libc).
 - `divrem_i64_dense.wat`: i64 `div`/`rem` heavy loop (WAT, no libc).
 - `round_f64_dense.wat`: f64 rounding ops (`floor`/`ceil`/`trunc`/`nearest`) heavy loop (WAT, no libc).
+- `science_binomial_option_f64.wat`: binomial-tree option pricing DP, emitted as `binomial_option_f64_512x48.wasm`.
+- `science_convolution2d_f32.wat`: 2D blur / convolution stencil, emitted as `convolution2d_f32_128x128_x40.wasm`.
+- `science_fir_f32.wat`: FIR filter style convolution, emitted as `fir_f32_32tap_32k_x24.wasm`.
+- `science_game_of_life_i32.wat`: Conway Game of Life cellular automaton, emitted as `game_of_life_i32_128x128_x64.wasm`.
+- `science_jacobi_2d_f64.wat`: 2D Jacobi relaxation, emitted as `jacobi_2d_f64_128x128_x96.wasm`.
+- `science_knapsack_i32.wat`: repeated 0/1 knapsack DP, emitted as `knapsack_i32_160x2048_x64.wasm`.
+- `science_levenshtein_i32.wat`: repeated edit-distance dynamic programming, emitted as `levenshtein_i32_96x96_x192.wasm`.
+- `science_lorenz_f64.wat`: batched Lorenz attractor integration, emitted as `lorenz_f64_256x1200.wasm`.
+- `science_heat3d_f32.wat`: 3D heat-equation stencil, emitted as `heat3d_f32_32x32x32_x32.wasm`.
+- `science_monte_carlo_pi_f64.wat`: Monte Carlo pi estimation (WAT stochastic float + branch workload).
+- `science_smith_waterman_i32.wat`: Smith-Waterman local-alignment DP, emitted as `smith_waterman_i32_128x128_x160.wasm`.
+- `science_biquad_iir_f32.wat`: cascaded biquad IIR filter bank, emitted as `biquad_iir_f32_8sec_64k_x20.wasm`.
+- `science_floyd_warshall_i32.wat`: all-pairs shortest-path dynamic programming, emitted as `floyd_warshall_i32_64n_x20.wasm`.
+- `science_hopfield_i32.wat`: dense Hopfield-network relaxation, emitted as `hopfield_i32_192n_x80.wasm`.
+- `science_mass_spring_f32.wat`: damped 1D mass-spring chain simulation, emitted as `mass_spring_f32_512n_x96.wasm`.
+- `science_advection_2d_f32.wat`: 2D advection / transport stencil, emitted as `advection_2d_f32_128x128_x80.wasm`.
+- `science_thomas_solver_f32.wat`: batched tridiagonal Thomas solver, emitted as `thomas_solver_f32_64sys_256n_x32.wasm`.
+- `science_bitonic_sort_i32.wat`: bitonic sorting-network benchmark, emitted as `bitonic_sort_i32_2048_x40.wasm`.
+- `science_red_black_sor_f32.wat`: red-black SOR stencil relaxation, emitted as `red_black_sor_f32_128x128_x120.wasm`.
+- `science_kaczmarz_f32.wat`: dense Kaczmarz linear solver, emitted as `kaczmarz_f32_256x64_x48.wasm`.
+- `science_rk4_lotka_volterra_f64.wat`: batched RK4 Lotka-Volterra integration, emitted as `rk4_lotka_volterra_f64_256x1200.wasm`.
+- `science_projected_gradient_qp_f32.wat`: projected-gradient quadratic program solver, emitted as `projected_gradient_qp_f32_96d_x160.wasm`.
+- `science_qubo_anneal_i32.wat`: QUBO / Ising-style annealing workload, emitted as `qubo_anneal_i32_128v_x160.wasm`.
+- `science_newton_raphson_f64.wat`: batched Newton-Raphson nonlinear root solve, emitted as `newton_raphson_f64_512x120.wasm`.
+- `science_coordinate_descent_l1_f32.wat`: coordinate-descent sparse optimization workload, emitted as `coordinate_descent_l1_f32_96d_x180.wasm`.
+- `science_maxcut_local_search_i32.wat`: graph max-cut local-search heuristic, emitted as `maxcut_local_search_i32_160v_x180.wasm`.
+- `science_halley_root_f64.wat`: batched Halley-method nonlinear root solve, emitted as `halley_root_f64_384x96.wasm`.
+- `science_sinkhorn_f32.wat`: Sinkhorn / matrix-scaling optimal-transport style iteration, emitted as `sinkhorn_f32_64x64_x96.wasm`.
+- `science_admm_lasso_f32.wat`: ADMM Lasso-style sparse optimization solve, emitted as `admm_lasso_f32_96d_x180.wasm`.
+- `science_bfs_frontier_i32.wat`: repeated graph BFS frontier expansion over a synthetic sparse graph, emitted as `bfs_frontier_i32_2048n_x40.wasm`.
+- `science_auction_assignment_i32.wat`: auction-style assignment / matching heuristic, emitted as `auction_assignment_i32_96x96_x96.wasm`.
+- `science_primal_dual_tv_f32.wat`: primal-dual total-variation denoising workload on a 2D grid, emitted as `primal_dual_tv_f32_96x96_x72.wasm`.
+- `science_em_soft_kmeans_f32.wat`: soft k-means / EM-like clustering workload, emitted as `em_soft_kmeans_f32_256x8_x72.wasm`.
+- `science_push_relabel_i32.wat`: push-relabel style graph-flow relaxation workload, emitted as `push_relabel_i32_128n_x32.wasm`.
+- `science_finite_volume_burgers_f32.wat`: 1D finite-volume Burgers solver with Rusanov fluxes, emitted as `finite_volume_burgers_f32_256n_x160.wasm`.
+- `science_belief_propagation_i32.wat`: loopy belief-propagation style integer message passing on a ring graph, emitted as `belief_propagation_i32_96v_x96.wasm`.
+- `science_alpha_expansion_i32.wat`: alpha-expansion style multi-label local-search workload, emitted as `alpha_expansion_i32_96v_x72.wasm`.
+- `science_riemann_euler1d_f32.wat`: 1D Euler finite-volume update with Rusanov / approximate-Riemann fluxes, emitted as `riemann_euler1d_f32_192n_x96.wasm`.
+- `science_hmm_forward_backward_f32.wat`: forward-backward HMM inference workload, emitted as `hmm_forward_backward_f32_48state_x1536.wasm`.
+- `science_viterbi_i32.wat`: Viterbi-style dynamic programming over 64 states.
+- `science_wave_2d_f32.wat`: 2D wave-equation stencil, emitted as `wave_2d_f32_128x128_x96.wasm`.
